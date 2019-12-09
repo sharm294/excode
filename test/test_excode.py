@@ -8,21 +8,13 @@ except ImportError:
     import io
 
 
-def test_plain():
-    inp = io.StringIO(
-        """
-Lorem ipsum
-```python
-1 + 2 + 3
-```
-dolor sit amet
-"""
-    )
-    code_blocks = excode.extract(inp)
+def test_plain(get_file):
+    with open(get_file.join("markdown/test_plain.md")) as inp:
+        code_blocks = excode.extract(inp)
     assert len(code_blocks) == 1
     assert code_blocks[0] == "1 + 2 + 3\n"
     out = io.StringIO()
-    excode.write(out, code_blocks)
+    excode.write(out, code_blocks, "python")
     assert (
         out.getvalue()
         == """def test0():
@@ -33,20 +25,9 @@ dolor sit amet
     return
 
 
-def test_filter():
-    inp = io.StringIO(
-        """
-Lorem ipsum
-```c
-a = 4 + 5 + 6;
-```
-```python
-1 + 2 + 3
-```
-dolor sit amet
-"""
-    )
-    code_blocks = excode.extract(inp, filter="python")
+def test_filter(get_file):
+    with open(get_file.join("markdown/test_filter.md")) as inp:
+        code_blocks = excode.extract(inp, filter_str="python")
     assert len(code_blocks) == 1
     assert code_blocks[0] == "1 + 2 + 3\n"
     return

@@ -10,7 +10,7 @@ import excode
 def _main():
     args = _parse_cmd_arguments()
     code_blocks = excode.extract(args.infile, filter=args.filter)
-    excode.write(args.outfile, code_blocks)
+    excode.write(args.outfile, code_blocks, args.mode, args.prefix)
     return
 
 
@@ -32,6 +32,12 @@ def _parse_cmd_arguments():
         type=argparse.FileType("w"),
         default=sys.stdout,
         help="output file (default: stdout)",
+    )
+    parser.add_argument(
+        "mode", type=str, default=None, help="code language (python/bash)",
+    )
+    parser.add_argument(
+        "prefix", type=str, default=None, help="function prefix",
     )
     parser.add_argument("-f", "--filter", type=str, help="filter string", default=None)
     return parser.parse_args()
