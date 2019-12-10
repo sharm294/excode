@@ -59,11 +59,25 @@ def change_endings(infile):
     return open(outfile)
 
 
+# inspired from https://github.com/PyCQA/pylint/blob/master/pylint/utils/pragma_parser.py
+MARKDOWN_EXCODE_COMMENT = r"(\s*\[\/\/\]: \# \(.*?\bexcode:\s*(.*=.*))\)"
+
+
 def extract(f, filter_str=None):
 
     f = change_endings(f)
 
     code_blocks = []
+
+    line = f.readline()
+    options = re.match(MARKDOWN_EXCODE_COMMENT, line)
+    if options:
+        s = str(options.group(2))
+        extracted = dict(item.split("=") for item in s.split(","))
+        extracted["code_blocks"] = []
+    else:
+        return {"code_blocks": []}
+
     while True:
         line = f.readline()
         if not line:
@@ -72,58 +86,88 @@ def extract(f, filter_str=None):
 
         out = re.match("[^`]*```(.*)$", line)
         if out:
-            if filter_str and filter_str.strip() != out.group(1).strip():
+            block_metadata = out.group(1).strip()
+            if filter_str and filter_str.strip() not in block_metadata:
                 continue
-            code_block = [f.readline()]
-            while re.search("```", code_block[-1]) is None:
-                code_block.append(f.readline())
-            code_blocks.append("".join(code_block[:-1]))
-    os.remove(f.name)  # remove temporary file created by change_endings()
-    return code_blocks
+            if "excode" in block_metadata:
+                metadata_str = block_metadata.split("excode:")[1]
+                metadata = dict(
+                    item.strip().split("=") for item in metadata_str.split(",")
+                )
+            else:
+                metadata = {}
+            metadata["code"] = [f.readline()]
+            code_block = []
+            while re.search("```", metadata["code"][-1]) is None:
+                metadata["code"].append(f.readline())
+            metadata["code"] = "".join(metadata["code"][:-1])
 
-
-def write(f, code_blocks, mode, prefix="test"):
-    if mode == "python":
-        # We'd like to put all code blocks in one file, each in separate test*()
-        # functions (for them to be picked up by pytest, for example), but
-        # asterisk imports are forbidden in subfunctions. Hence, parse for those
-        # imports and put them at the beginning of the output file.
-        asterisk_imports = []
-        clean_code_blocks = []
-        for code_block in code_blocks:
-            clean_code_block = []
-            for line in code_block.split("\n"):
-                if re.match("\\s*from\\s+[^\\s]+\\s+import\\s+\\*", line):
-                    asterisk_imports.append(line)
+            if "attach" in metadata:
+                if metadata["attach"] == "prev":
+                    extracted["code_blocks"][-1]["code"] += metadata["code"]
                 else:
-                    clean_code_block.append(line)
-            clean_code_blocks.append("\n".join(clean_code_block))
-        # make list unique
-        asterisk_imports = list(set(asterisk_imports))
+                    extracted["code_blocks"][int(metadata["attach"])]["code"].join(
+                        metadata["code"]
+                    )
+            else:
+                extracted["code_blocks"].append(metadata)
 
-        if asterisk_imports:
-            f.write("\n".join(asterisk_imports))
-            f.write("\n\n")
+    os.remove(f.name)  # remove temporary file created by change_endings()
 
-        fun_strings = []
-        for k, code_block in enumerate(clean_code_blocks):
-            fun_strings.append("")
-            fun_strings[-1] += "def {}{}():\n".format(prefix, k)
-            fun_strings[-1] += indent(code_block, 4)
-            fun_strings[-1] += "    return\n"
-        f.write("\n\n".join(fun_strings))
+    return extracted
 
-    elif mode == "bash":
-        fun_strings = []
-        for k, code_block in enumerate(code_blocks):
-            fun_strings.append("")
-            fun_strings[-1] += "{}{} (){{\n".format(prefix, k)
-            fun_strings[-1] += indent(code_block, 4)
-            fun_strings[-1] += "}\n"
 
+def write_python(f, code_blocks, prefix):
+    # We'd like to put all code blocks in one file, each in separate test*()
+    # functions (for them to be picked up by pytest, for example), but
+    # asterisk imports are forbidden in subfunctions. Hence, parse for those
+    # imports and put them at the beginning of the output file.
+    asterisk_imports = []
+    clean_code_blocks = []
+    for code_block in code_blocks:
+        clean_code_block = []
+        for line in code_block["code"].split("\n"):
+            if re.match("\\s*from\\s+[^\\s]+\\s+import\\s+\\*", line):
+                asterisk_imports.append(line)
+            else:
+                clean_code_block.append(line)
+        clean_code_blocks.append("\n".join(clean_code_block))
+    # make list unique
+    asterisk_imports = list(set(asterisk_imports))
+
+    if asterisk_imports:
+        f.write("\n".join(asterisk_imports))
+        f.write("\n\n")
+
+    fun_strings = []
+    for k, code_block in enumerate(clean_code_blocks):
         fun_strings.append("")
-        fun_strings[-1] += "export NUM_TESTS=" + str(len(code_blocks))
-        f.write("\n\n".join(fun_strings))
+        fun_strings[-1] += "def {}{}():\n".format(prefix, k)
+        fun_strings[-1] += indent(code_block, 4)
+        fun_strings[-1] += "    return\n"
+    f.write("\n\n".join(fun_strings))
+
+
+def write_bash(f, code_blocks, prefix):
+    fun_strings = []
+    for k, code_block in enumerate(code_blocks):
+        fun_strings.append("")
+        fun_strings[-1] += "{}{}() {{\n".format(prefix, k)
+        fun_strings[-1] += indent(code_block["code"], 4)
+        fun_strings[-1] += "}\n"
+
+    fun_strings.append("")
+    fun_strings[-1] += "export NUM_TESTS=%s\n" % str(len(code_blocks))
+    f.write("\n\n".join(fun_strings))
+
+
+def write(f, extracted, prefix="test"):
+    code_blocks = extracted["code_blocks"]
+    print(code_blocks)
+    if extracted["mode"] == "python":
+        write_python(f, code_blocks, prefix)
+    elif extracted["mode"] == "bash":
+        write_bash(f, code_blocks, prefix)
     else:
-        raise Exception("unknown language mode")
+        raise ValueError("unknown language mode")
     return

@@ -24,7 +24,7 @@ setup(
     description=("Extract code blocks from text files"),
     long_description=read("README.md"),
     long_description_content_type="text/markdown",
-    url="https://github.com/nschloe/excode",
+    url="https://github.com/sharm294/excode",
     license=about["__license__"],
     platforms="any",
     install_requires=[],
