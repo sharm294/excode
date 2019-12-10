@@ -117,6 +117,16 @@ def extract(f, filter_str=None):
     return extracted
 
 
+def write_python_function(code_blocks, prefix):
+    fun_strings = []
+    for k, code_block in enumerate(code_blocks):
+        fun_strings.append("")
+        fun_strings[-1] += "def {}{}():\n".format(prefix, k)
+        fun_strings[-1] += indent(code_block, 4)
+        fun_strings[-1] += "    return\n"
+    return fun_strings
+
+
 def write_python(f, code_blocks, prefix):
     # We'd like to put all code blocks in one file, each in separate test*()
     # functions (for them to be picked up by pytest, for example), but
@@ -139,13 +149,49 @@ def write_python(f, code_blocks, prefix):
         f.write("\n".join(asterisk_imports))
         f.write("\n\n")
 
-    fun_strings = []
-    for k, code_block in enumerate(clean_code_blocks):
-        fun_strings.append("")
-        fun_strings[-1] += "def {}{}():\n".format(prefix, k)
-        fun_strings[-1] += indent(code_block, 4)
-        fun_strings[-1] += "    return\n"
+    # fun_strings = []
+    # for k, code_block in enumerate(clean_code_blocks):
+    #     fun_strings.append("")
+    #     fun_strings[-1] += "def {}{}():\n".format(prefix, k)
+    #     fun_strings[-1] += indent(code_block, 4)
+    #     fun_strings[-1] += "    return\n"
+    fun_strings = write_python_function(clean_code_blocks, prefix)
     f.write("\n\n".join(fun_strings))
+
+
+def write_bash_switch(num, prefix):
+    switch = []
+    for i in range(num):
+        switch.append(
+            textwrap.dedent(
+                f"""\
+                if [[ $1 == {i} ]]; then
+                    {prefix}{i}
+                fi
+                """
+            )
+        )
+    return switch
+
+
+def write_bash_wrapper(filepath, num, prefix):
+    fun_strings = []
+    fun_strings.append("import subprocess")
+
+    filename = os.path.basename(filepath)
+    dirname = os.path.dirname(filepath)
+    code_blocks = []
+    for i in range(num):
+        code_blocks.append(
+            f'result = subprocess.run(["{filepath} {i}"], stdout=subprocess.PIPE, shell=True)\n'
+        )
+    functions = write_python_function(code_blocks, prefix)
+    fun_strings.extend(functions)
+    python_filepath = filepath.replace(".sh", ".py")
+    with open(python_filepath, "w") as f:
+        f.write("\n\n".join(fun_strings))
+
+    return
 
 
 def write_bash(f, code_blocks, prefix):
@@ -156,14 +202,18 @@ def write_bash(f, code_blocks, prefix):
         fun_strings[-1] += indent(code_block["code"], 4)
         fun_strings[-1] += "}\n"
 
-    fun_strings.append("")
-    fun_strings[-1] += "export NUM_TESTS=%s\n" % str(len(code_blocks))
-    f.write("\n\n".join(fun_strings))
+    fun_strings.extend(write_bash_switch(len(code_blocks), prefix))
+    # fun_strings.append("")
+    # fun_strings[-1] += "export NUM_TESTS=%s\n" % str(len(code_blocks))
+    f.write("\n".join(fun_strings))
+
+    filename = f.name
+    os.chmod(filename, 0o755)
+    write_bash_wrapper(filename, len(code_blocks), prefix)
 
 
-def write(f, extracted, prefix="test"):
+def write(f, extracted, prefix="test_"):
     code_blocks = extracted["code_blocks"]
-    print(code_blocks)
     if extracted["mode"] == "python":
         write_python(f, code_blocks, prefix)
     elif extracted["mode"] == "bash":
