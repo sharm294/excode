@@ -43,9 +43,7 @@ def test_plain(get_file, get_out_dir):
 
 
 def test_filter(get_file):
-    extracted = excode.extract(
-        get_file.join("markdown/test_filter.md"), filter_str="python"
-    )
+    extracted = excode.extract(get_file.join("markdown/test_filter.md"))
     assert len(extracted["code_blocks"]) == 1
     assert extracted["code_blocks"][0]["code"] == "1 + 2 + 3\n"
 

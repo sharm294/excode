@@ -11,61 +11,42 @@ def _main():
     parser = _parse_cmd_arguments()
     args = parser.parse_args()
     if _validate_args(args):
-        if hasattr(args, "dir"):
-            for _root, _dirs, files in os.walk(args.dir):
+        if os.path.isdir(args.indir):
+            for _root, _dirs, files in os.walk(args.indir):
                 for a_file in files:
                     if a_file.endswith(".md"):
-                        print(f"found a file {a_file}")
-                        _run_excode(
-                            os.path.join(_root, a_file), args.outdir, args.filter
-                        )
+                        _run_excode(os.path.join(_root, a_file), args.outdir)
         else:
-            _run_excode(args.infile, args.outdir, args.filter)
+            _run_excode(args.indir, args.outdir)
     else:
         parser.print_help()
     return
 
 
-def _run_excode(infile, outdir=None, filter_str=None):
-    extracted = excode.extract(infile, filter_str=filter_str)
+def _run_excode(indir, outdir):
+    extracted = excode.extract(indir)
     excode.write(outdir, extracted)
 
 
 def _parse_cmd_arguments():
     parser = argparse.ArgumentParser(
-        description="Extract code blocks from markdown files. Provide at least one \
-        of dir or infile"
+        description="Extract code blocks from markdown file(s)"
     )
     parser.add_argument(
-        "-d",
-        "--dir",
-        type=str,
-        help="directory to search for input files",
-        default=None,
+        "indir", type=str, help="input markdown file or directory",
     )
-    parser.add_argument(
-        "-i", "--infile", type=str, help="input markdown file", default=None
-    )
-    parser.add_argument("-o", "--outdir", type=str, help="output dir", default=None)
-    parser.add_argument("-f", "--filter", type=str, help="filter string", default=None)
+    parser.add_argument("outdir", type=str, help="output dir")
     return parser
 
 
 def _validate_args(args):
-    has_dir = True if args.dir else False
-    has_infile = True if args.infile else False
-    has_filter = True if args.filter else False
-
-    if has_dir and has_infile:
-        print("Dir and infile can't both be specified")
+    if not os.path.isdir(args.indir) and not os.path.isfile(args.indir):
+        print("indir must be an existing directory or file path")
         return False
 
-    if not has_dir and not has_infile:
-        print("One of dir and infile have to be specified")
+    if not os.path.isdir(args.outdir):
+        print("outdir must be an existing directory")
         return False
-
-    if has_dir and has_filter:
-        print("Note: the filter will be applied on every file that's found.")
 
     return True
 

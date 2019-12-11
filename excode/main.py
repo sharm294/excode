@@ -66,7 +66,7 @@ MARKDOWN_VALIDATION = r"\[\/\/\]: \# \(.*?\bexcode-validation:\s*(\d)?\s*([\S\s]
 MARKDOWN_CODE = r"\`\`\`(.*)\s([^\`]+)\`\`\`"
 
 
-def extract(infile, filter_str=None):
+def extract(infile):
 
     infile_2 = change_endings(infile)
 
@@ -82,13 +82,14 @@ def extract(infile, filter_str=None):
         extracted["code_blocks"] = []
         extracted["filename"] = infile
     else:
+        os.remove(infile_2)  # remove temporary file created by change_endings()
         return {"code_blocks": [], "validation": []}
 
     options = re.findall(MARKDOWN_CODE, readfile)
     if options:
         for match in options:
             block_metadata = match[0].strip()
-            if filter_str and filter_str.strip() not in block_metadata:
+            if not block_metadata.startswith(extracted["mode"]):
                 continue
             if "excode" in block_metadata:
                 metadata_str = block_metadata.split("excode:")[1]
