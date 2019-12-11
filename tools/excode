@@ -12,11 +12,12 @@ def _main():
     args = parser.parse_args()
     if _validate_args(args):
         if hasattr(args, "dir"):
-            for _root, _dirs, files in os.walk("/mydir"):
+            for _root, _dirs, files in os.walk(args.dir):
                 for a_file in files:
                     if a_file.endswith(".md"):
+                        print(f"found a file {a_file}")
                         _run_excode(
-                            os.path.join(root, a_file), args.outdir, args.filter
+                            os.path.join(_root, a_file), args.outdir, args.filter
                         )
         else:
             _run_excode(args.infile, args.outdir, args.filter)
@@ -26,8 +27,8 @@ def _main():
 
 
 def _run_excode(infile, outdir=None, filter_str=None):
-    code_blocks = excode.extract(infile, filter=filter_str)
-    excode.write(outdir, code_blocks)
+    extracted = excode.extract(infile, filter_str=filter_str)
+    excode.write(outdir, extracted)
 
 
 def _parse_cmd_arguments():
@@ -51,14 +52,16 @@ def _parse_cmd_arguments():
 
 
 def _validate_args(args):
-    has_dir = True if hasattr(args, "dir") else False
-    has_infile = True if hasattr(args, "infile") else False
-    has_filter = True if hasattr(args, "filter") else False
+    has_dir = True if args.dir else False
+    has_infile = True if args.infile else False
+    has_filter = True if args.filter else False
 
     if has_dir and has_infile:
+        print("Dir and infile can't both be specified")
         return False
 
     if not has_dir and not has_infile:
+        print("One of dir and infile have to be specified")
         return False
 
     if has_dir and has_filter:

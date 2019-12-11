@@ -1,4 +1,4 @@
-[//]: # (excode: mode=python)
+[//]: # (excode-config: mode=python)
 Lorem ipsum
 ```python
 add = 1 + 2 + 3

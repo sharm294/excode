@@ -61,7 +61,9 @@ def change_endings(infile):
 
 
 # inspired from https://github.com/PyCQA/pylint/blob/master/pylint/utils/pragma_parser.py
-MARKDOWN_EXCODE_COMMENT = r"(\s*\[\/\/\]: \# \(.*?\bexcode:\s*(.*=.*))\)"
+MARKDOWN_CONFIG = r"(\[\/\/\]: \# \(.*?\bexcode-config:\s*(.*=.*))\)"
+MARKDOWN_VALIDATION = r"\[\/\/\]: \# \(.*?\bexcode-validation:\s*(\d)?\s*([\S\s]*)\)"
+MARKDOWN_CODE = r"\`\`\`(.*)\s([^\`]+)\`\`\`"
 
 
 def extract(infile, filter_str=None):
@@ -71,66 +73,74 @@ def extract(infile, filter_str=None):
     code_blocks = []
 
     with open(infile_2, "r") as f:
-        line = f.readline()
-        options = re.match(MARKDOWN_EXCODE_COMMENT, line)
-        if options:
-            s = str(options.group(2))
-            extracted = dict(item.split("=") for item in s.split(","))
-            extracted["code_blocks"] = []
-            extracted["filename"] = infile_2
-        else:
-            return {"code_blocks": []}
+        readfile = f.read()
 
-        while True:
-            line = f.readline()
-            if not line:
-                # EOF
-                break
+    options = re.findall(MARKDOWN_CONFIG, readfile)
+    if options:
+        s = str(options[-1][1])
+        extracted = dict(item.split("=") for item in s.split(","))
+        extracted["code_blocks"] = []
+        extracted["filename"] = infile
+    else:
+        return {"code_blocks": [], "validation": []}
 
-            out = re.match("[^`]*```(.*)$", line)
-            if out:
-                block_metadata = out.group(1).strip()
-                if filter_str and filter_str.strip() not in block_metadata:
-                    continue
-                if "excode" in block_metadata:
-                    metadata_str = block_metadata.split("excode:")[1]
-                    metadata = dict(
-                        item.strip().split("=") for item in metadata_str.split(",")
+    options = re.findall(MARKDOWN_CODE, readfile)
+    if options:
+        for match in options:
+            block_metadata = match[0].strip()
+            if filter_str and filter_str.strip() not in block_metadata:
+                continue
+            if "excode" in block_metadata:
+                metadata_str = block_metadata.split("excode:")[1]
+                metadata = dict(
+                    item.strip().split("=") for item in metadata_str.split(",")
+                )
+            else:
+                metadata = {}
+            metadata["code"] = match[1]
+
+            if "attach" in metadata:
+                if metadata["attach"] == "prev":
+                    extracted["code_blocks"][-1]["code"] += metadata["code"]
+                else:
+                    extracted["code_blocks"][int(metadata["attach"])]["code"].join(
+                        metadata["code"]
                     )
-                else:
-                    metadata = {}
-                metadata["code"] = [f.readline()]
-                code_block = []
-                while re.search("```", metadata["code"][-1]) is None:
-                    metadata["code"].append(f.readline())
-                metadata["code"] = "".join(metadata["code"][:-1])
+            else:
+                extracted["code_blocks"].append(metadata)
 
-                if "attach" in metadata:
-                    if metadata["attach"] == "prev":
-                        extracted["code_blocks"][-1]["code"] += metadata["code"]
-                    else:
-                        extracted["code_blocks"][int(metadata["attach"])]["code"].join(
-                            metadata["code"]
-                        )
+    if extracted["code_blocks"]:
+        extracted["validation"] = [None] * len(extracted["code_blocks"])
+
+        options = re.findall(MARKDOWN_VALIDATION, readfile)
+        if options:
+            curr_index = 0
+            for match in options:
+                if match[0]:
+                    index = match[0]
                 else:
-                    extracted["code_blocks"].append(metadata)
+                    index = curr_index
+                    curr_index += 1
+                extracted["validation"][index] = match[1]
 
     os.remove(infile_2)  # remove temporary file created by change_endings()
 
     return extracted
 
 
-def write_python_function(code_blocks, prefix):
+def write_python_function(code_blocks, validation, prefix):
     fun_strings = []
     for k, code_block in enumerate(code_blocks):
         fun_strings.append("")
         fun_strings[-1] += "def {}{}():\n".format(prefix, k)
         fun_strings[-1] += indent(code_block, 4)
+        if validation[k]:
+            fun_strings[-1] += indent(validation[k], 4)
         fun_strings[-1] += "    return\n"
     return fun_strings
 
 
-def write_python(outfile, code_blocks, prefix):
+def write_python(outfile, code_blocks, validation, prefix):
     # We'd like to put all code blocks in one file, each in separate test*()
     # functions (for them to be picked up by pytest, for example), but
     # asterisk imports are forbidden in subfunctions. Hence, parse for those
@@ -153,7 +163,7 @@ def write_python(outfile, code_blocks, prefix):
             f.write("\n".join(asterisk_imports))
             f.write("\n\n")
 
-        fun_strings = write_python_function(clean_code_blocks, prefix)
+        fun_strings = write_python_function(clean_code_blocks, validation, prefix)
         f.write("\n\n".join(fun_strings))
 
 
@@ -172,7 +182,7 @@ def write_bash_switch(num, prefix):
     return switch
 
 
-def write_bash_wrapper(outfile, num, prefix):
+def write_bash_wrapper(outfile, num, validation, prefix):
     fun_strings = []
     fun_strings.append("import subprocess")
 
@@ -181,9 +191,13 @@ def write_bash_wrapper(outfile, num, prefix):
     code_blocks = []
     for i in range(num):
         code_blocks.append(
-            f'result = subprocess.run(["{outfile} {i}"], stdout=subprocess.PIPE, shell=True)\n'
+            textwrap.dedent(
+                f"""\
+                stdout = subprocess.run(["{outfile} {i}"], stdout=subprocess.PIPE, shell=True).stdout.decode("utf-8")
+                """
+            )
         )
-    functions = write_python_function(code_blocks, prefix)
+    functions = write_python_function(code_blocks, validation, prefix)
     fun_strings.extend(functions)
     python_filepath = str(outfile).replace(".sh", ".py")
     with open(python_filepath, "w") as f:
@@ -192,7 +206,7 @@ def write_bash_wrapper(outfile, num, prefix):
     return
 
 
-def write_bash(outfile, code_blocks, prefix):
+def write_bash(outfile, code_blocks, validation, prefix):
     fun_strings = []
     for k, code_block in enumerate(code_blocks):
         fun_strings.append("")
@@ -207,19 +221,22 @@ def write_bash(outfile, code_blocks, prefix):
         f.write("\n".join(fun_strings))
 
     os.chmod(outfile, 0o755)
-    write_bash_wrapper(outfile, len(code_blocks), prefix)
+    write_bash_wrapper(outfile, len(code_blocks), validation, prefix)
 
 
 def write(outdir, extracted, prefix="test_"):
     code_blocks = extracted["code_blocks"]
+    if not code_blocks:
+        return None
+    validation = extracted["validation"]
     if extracted["mode"] == "python":
         infile = os.path.basename(extracted["filename"]).replace(".md", ".py")
         outfile = os.path.join(outdir, infile)
-        write_python(outfile, code_blocks, prefix)
+        write_python(outfile, code_blocks, validation, prefix)
     elif extracted["mode"] == "bash":
         infile = os.path.basename(extracted["filename"]).replace(".md", ".sh")
         outfile = os.path.join(outdir, infile)
-        write_bash(outfile, code_blocks, prefix)
+        write_bash(outfile, code_blocks, validation, prefix)
     else:
         raise ValueError("unknown language mode")
     return outfile
