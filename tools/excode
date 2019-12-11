@@ -2,30 +2,69 @@
 # -*- coding: utf-8 -*-
 #
 import argparse
-import sys
+import os
 
 import excode
 
 
 def _main():
-    args = _parse_cmd_arguments()
-    code_blocks = excode.extract(args.infile, filter=args.filter)
-    excode.write(args.outfile, code_blocks, args.mode, args.prefix)
+    parser = _parse_cmd_arguments()
+    args = parser.parse_args()
+    if _validate_args(args):
+        if hasattr(args, "dir"):
+            for _root, _dirs, files in os.walk("/mydir"):
+                for a_file in files:
+                    if a_file.endswith(".md"):
+                        _run_excode(
+                            os.path.join(root, a_file), args.outdir, args.filter
+                        )
+        else:
+            _run_excode(args.infile, args.outdir, args.filter)
+    else:
+        parser.print_help()
     return
+
+
+def _run_excode(infile, outdir=None, filter_str=None):
+    code_blocks = excode.extract(infile, filter=filter_str)
+    excode.write(outdir, code_blocks)
 
 
 def _parse_cmd_arguments():
     parser = argparse.ArgumentParser(
-        description="Extract code blocks from markdown files."
+        description="Extract code blocks from markdown files. Provide at least one \
+        of dir or infile"
     )
     parser.add_argument(
-        "infile", type=str, help="input markdown file",
+        "-d",
+        "--dir",
+        type=str,
+        help="directory to search for input files",
+        default=None,
     )
     parser.add_argument(
-        "outfile", type=str, help="output file",
+        "-i", "--infile", type=str, help="input markdown file", default=None
     )
+    parser.add_argument("-o", "--outdir", type=str, help="output dir", default=None)
     parser.add_argument("-f", "--filter", type=str, help="filter string", default=None)
-    return parser.parse_args()
+    return parser
+
+
+def _validate_args(args):
+    has_dir = True if hasattr(args, "dir") else False
+    has_infile = True if hasattr(args, "infile") else False
+    has_filter = True if hasattr(args, "filter") else False
+
+    if has_dir and has_infile:
+        return False
+
+    if not has_dir and not has_infile:
+        return False
+
+    if has_dir and has_filter:
+        print("Note: the filter will be applied on every file that's found.")
+
+    return True
 
 
 if __name__ == "__main__":

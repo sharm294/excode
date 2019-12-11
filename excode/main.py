@@ -77,6 +77,7 @@ def extract(infile, filter_str=None):
             s = str(options.group(2))
             extracted = dict(item.split("=") for item in s.split(","))
             extracted["code_blocks"] = []
+            extracted["filename"] = infile_2
         else:
             return {"code_blocks": []}
 
@@ -129,7 +130,7 @@ def write_python_function(code_blocks, prefix):
     return fun_strings
 
 
-def write_python(infile, code_blocks, prefix):
+def write_python(outfile, code_blocks, prefix):
     # We'd like to put all code blocks in one file, each in separate test*()
     # functions (for them to be picked up by pytest, for example), but
     # asterisk imports are forbidden in subfunctions. Hence, parse for those
@@ -147,7 +148,7 @@ def write_python(infile, code_blocks, prefix):
     # make list unique
     asterisk_imports = list(set(asterisk_imports))
 
-    with open(infile, "w") as f:
+    with open(outfile, "w") as f:
         if asterisk_imports:
             f.write("\n".join(asterisk_imports))
             f.write("\n\n")
@@ -171,27 +172,27 @@ def write_bash_switch(num, prefix):
     return switch
 
 
-def write_bash_wrapper(filepath, num, prefix):
+def write_bash_wrapper(outfile, num, prefix):
     fun_strings = []
     fun_strings.append("import subprocess")
 
-    filename = os.path.basename(filepath)
-    dirname = os.path.dirname(filepath)
+    filename = os.path.basename(outfile)
+    dirname = os.path.dirname(outfile)
     code_blocks = []
     for i in range(num):
         code_blocks.append(
-            f'result = subprocess.run(["{filepath} {i}"], stdout=subprocess.PIPE, shell=True)\n'
+            f'result = subprocess.run(["{outfile} {i}"], stdout=subprocess.PIPE, shell=True)\n'
         )
     functions = write_python_function(code_blocks, prefix)
     fun_strings.extend(functions)
-    python_filepath = str(filepath).replace(".sh", ".py")
+    python_filepath = str(outfile).replace(".sh", ".py")
     with open(python_filepath, "w") as f:
         f.write("\n\n".join(fun_strings))
 
     return
 
 
-def write_bash(infile, code_blocks, prefix):
+def write_bash(outfile, code_blocks, prefix):
     fun_strings = []
     for k, code_block in enumerate(code_blocks):
         fun_strings.append("")
@@ -202,19 +203,23 @@ def write_bash(infile, code_blocks, prefix):
     fun_strings.extend(write_bash_switch(len(code_blocks), prefix))
     # fun_strings.append("")
     # fun_strings[-1] += "export NUM_TESTS=%s\n" % str(len(code_blocks))
-    with open(infile, "w") as f:
+    with open(outfile, "w") as f:
         f.write("\n".join(fun_strings))
 
-    os.chmod(infile, 0o755)
-    write_bash_wrapper(infile, len(code_blocks), prefix)
+    os.chmod(outfile, 0o755)
+    write_bash_wrapper(outfile, len(code_blocks), prefix)
 
 
-def write(f, extracted, prefix="test_"):
+def write(outdir, extracted, prefix="test_"):
     code_blocks = extracted["code_blocks"]
     if extracted["mode"] == "python":
-        write_python(f, code_blocks, prefix)
+        infile = os.path.basename(extracted["filename"]).replace(".md", ".py")
+        outfile = os.path.join(outdir, infile)
+        write_python(outfile, code_blocks, prefix)
     elif extracted["mode"] == "bash":
-        write_bash(f, code_blocks, prefix)
+        infile = os.path.basename(extracted["filename"]).replace(".md", ".sh")
+        outfile = os.path.join(outdir, infile)
+        write_bash(outfile, code_blocks, prefix)
     else:
         raise ValueError("unknown language mode")
-    return
+    return outfile

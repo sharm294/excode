@@ -1,6 +1,6 @@
 [//]: # (excode: mode=bash)
 Lorem ipsum
 ```bash
-export FOO=bar
+echo "Hello World"
 ```
 dolor sit amet

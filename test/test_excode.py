@@ -26,8 +26,7 @@ def test_plain(get_file, get_out_dir):
     )
     assert extracted["code_blocks"][0]["code"] == target_value
 
-    filepath = get_out_dir.join("/test_plain.sh")
-    excode.write(filepath, extracted)
+    filepath = excode.write(str(get_out_dir), extracted)
     target_value = textwrap.dedent(
         """\
         def test_0():
@@ -54,15 +53,14 @@ def test_filter(get_file):
 def test_shell(get_file, get_out_dir):
     extracted = excode.extract(get_file.join("markdown/test_shell.md"))
     assert len(extracted["code_blocks"]) == 1
-    assert extracted["code_blocks"][0]["code"] == "export FOO=bar\n"
+    assert extracted["code_blocks"][0]["code"] == 'echo "Hello World"\n'
 
-    filepath = get_out_dir.join("/test_shell.sh")
-    excode.write(filepath, extracted)
+    filepath = excode.write(str(get_out_dir), extracted)
 
     target_value = textwrap.dedent(
         """\
         test_0() {
-            export FOO=bar
+            echo "Hello World"
         }
 
         if [[ $1 == 0 ]]; then
