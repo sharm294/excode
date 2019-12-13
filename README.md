@@ -1,75 +1,63 @@
 # excode
 
-[![CircleCI](https://img.shields.io/circleci/project/github/nschloe/excode/master.svg)](https://circleci.com/gh/nschloe/excode)
+<!-- [![CircleCI](https://img.shields.io/circleci/project/github/nschloe/excode/master.svg)](https://circleci.com/gh/nschloe/excode)
 [![codecov](https://codecov.io/gh/nschloe/excode/branch/master/graph/badge.svg)](https://codecov.io/gh/nschloe/excode)
 [![PyPi Version](https://img.shields.io/pypi/v/excode.svg)](https://pypi.python.org/pypi/excode)
-[![GitHub stars](https://img.shields.io/github/stars/nschloe/excode.svg?logo=github&label=Stars)](https://github.com/nschloe/excode)
+[![GitHub stars](https://img.shields.io/github/stars/sharm294/excode.svg?logo=github&label=Stars)](https://github.com/sharm294/excode) -->
 
 This is excode, a tool for extracting code blocks from markdown files.
 
 For example, the command
 ```
-excode input.md test.py
+excode ./ ./tests/
 ```
-takes `input.md`,
+takes all markdown files in the local directory (which let's say only contains a file named `input.md`),
 ````
+[//]: # (excode-config: mode=python)
 Lorem ipsum
 ```python
-some_code = 1
+add = 1 + 2 + 3
+print(add)
 ```
-dolor sit amet.
 ````
-and creates `test.py`,
+and creates `input.py` and places it in the `./tests/` directory,
 ```python
-def test0():
-    some_code = 1
+def test_0():
+    add = 1 + 2 + 3
+    print(add)
     return
 ```
-This can be used for automatically turning snippets from
-a `README.md` into unit tests.
+This can be used for automatically turning snippets from markdown files into testable code that can be tested using pytest.
+Note that `[//]: # (...)` is a non-rendering/printing Markdown comment that's used to enable excode on a particular file and provide some control features.
 
-#### Filter code blocks
+## Installation
 
-The command
-```
-excode -f "python,test" input.md test.py
-```
-only extracts code blocks with the header
-````
-```python,test
-some_code()
-```
-````
-(Appending anything to `<lang_name>` in the markdown header doesn't influence
-the syntax highlighting.)
-
-### Installation
-
-excode is [available from the Python Package
-Index](https://pypi.python.org/pypi/excode/), so simply
+The original excode is [available on PyPI](https://pypi.python.org/pypi/excode/).
+If these [changes](#differences-from-the-original-project) are merged into the this package, then it can be installed/upgraded with:
 ```
 pip install -U excode
 ```
-to install or upgrade.
 
-### Testing
+Otherwise, clone this repository and run
 
-To run the unit tests, check out this repository and type
+```
+pip install .
+```
+to install the package using the cloned repository.
+
+## Testing
+
+To run the unit tests, clone this repository and run
 ```
 pytest
 ```
 
-### Distribution
+## Differences from the Original Project
 
-To create a new release
+* Support shell and python blocks in Markdown
+* Run on directories instead of just single files
+* Use Markdown comments for configuration and controlling code generation
 
-1. bump the `__version__` number,
-
-2. publish to PyPi and GitHub:
-    ```
-    $ make publish
-    ```
-
-### License
+## License
 
 excode is published under the [MIT license](https://en.wikipedia.org/wiki/MIT_License).

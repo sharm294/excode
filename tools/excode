@@ -41,11 +41,7 @@ def _parse_cmd_arguments():
 
 def _validate_args(args):
     if not os.path.isdir(args.indir) and not os.path.isfile(args.indir):
-        print("indir must be an existing directory or file path")
-        return False
-
-    if not os.path.isdir(args.outdir):
-        print("outdir must be an existing directory")
+        print(f"{args.indir} must be an existing directory or file path")
         return False
 
     return True
