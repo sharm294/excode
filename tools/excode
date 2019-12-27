@@ -15,7 +15,9 @@ def _main():
             for _root, _dirs, files in os.walk(args.indir):
                 for a_file in files:
                     if a_file.endswith(".md"):
-                        _run_excode(os.path.join(_root, a_file), args.outdir)
+                        _run_excode(
+                            args.indir, os.path.join(_root, a_file), args.outdir
+                        )
         else:
             _run_excode(args.indir, args.outdir)
     else:
@@ -23,9 +25,9 @@ def _main():
     return
 
 
-def _run_excode(indir, outdir):
+def _run_excode(rootdir, indir, outdir):
     extracted = excode.extract(indir)
-    excode.write(outdir, extracted)
+    excode.write(rootdir, outdir, extracted)
 
 
 def _parse_cmd_arguments():
@@ -43,6 +45,9 @@ def _validate_args(args):
     if not os.path.isdir(args.indir) and not os.path.isfile(args.indir):
         print(f"{args.indir} must be an existing directory or file path")
         return False
+
+    if not os.path.isdir(args.outdir):
+        os.makedirs(args.outdir, exist_ok=True)
 
     return True
 

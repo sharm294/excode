@@ -104,9 +104,9 @@ def extract(infile):
                 if metadata["attach"] == "prev":
                     extracted["code_blocks"][-1]["code"] += metadata["code"]
                 else:
-                    extracted["code_blocks"][int(metadata["attach"])]["code"].join(
-                        metadata["code"]
-                    )
+                    extracted["code_blocks"][int(metadata["attach"])][
+                        "code"
+                    ] += metadata["code"]
             else:
                 extracted["code_blocks"].append(metadata)
 
@@ -208,7 +208,7 @@ def write_bash_wrapper(outfile, num, validation, prefix):
 
 
 def write_bash(outfile, code_blocks, validation, prefix):
-    fun_strings = []
+    fun_strings = ["#!/usr/bin/env bash\n"]
     for k, code_block in enumerate(code_blocks):
         fun_strings.append("")
         fun_strings[-1] += "{}{}() {{\n".format(prefix, k)
@@ -225,18 +225,26 @@ def write_bash(outfile, code_blocks, validation, prefix):
     write_bash_wrapper(outfile, len(code_blocks), validation, prefix)
 
 
-def write(outdir, extracted, prefix="test_"):
+def write(indir, outdir, extracted, prefix="test_"):
     code_blocks = extracted["code_blocks"]
     if not code_blocks:
         return None
     validation = extracted["validation"]
     if extracted["mode"] == "python":
         infile = os.path.basename(extracted["filename"]).replace(".md", ".py")
-        outfile = os.path.join(outdir, infile)
+        out_prefix = os.path.dirname(extracted["filename"])[
+            len(indir) + 1 :
+        ]  # +1 to remove leading slash
+        outfile = os.path.join(outdir, out_prefix, "test_" + infile)
+        os.makedirs(os.path.dirname(outfile), exist_ok=True)
         write_python(outfile, code_blocks, validation, prefix)
     elif extracted["mode"] == "bash":
         infile = os.path.basename(extracted["filename"]).replace(".md", ".sh")
-        outfile = os.path.join(outdir, infile)
+        out_prefix = os.path.dirname(extracted["filename"])[
+            len(indir) + 1 :
+        ]  # +1 to remove leading slash
+        outfile = os.path.join(outdir, out_prefix, "test_" + infile)
+        os.makedirs(os.path.dirname(outfile), exist_ok=True)
         write_bash(outfile, code_blocks, validation, prefix)
     else:
         raise ValueError("unknown language mode")
