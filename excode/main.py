@@ -3,76 +3,64 @@
 import os
 import platform
 import re
-
-# https://stackoverflow.com/a/8348914/353337
-try:
-    import textwrap
-
-    textwrap.indent
-except AttributeError:  # undefined function (wasn't added until Python 3.3)
-
-    def indent(text, amount, ch=" "):
-        padding = amount * ch
-        return "".join(padding + line for line in text.splitlines(True)).replace(
-            "\n    \n", "\n\n"
-        )
+import textwrap
 
 
-else:
-
-    def indent(text, amount, ch=" "):
-        return textwrap.indent(text, amount * ch).replace("\n    \n", "\n\n")
+def indent(text, amount, ch=" "):
+    return textwrap.indent(text, amount * ch).replace("\n    \n", "\n\n")
 
 
-def change_endings(infile):
-    """
-    Sometimes, READMEs get weird file endings. We force the endings appropriate
-    to the platform in case they're wrong. Otherwise, there's no change made.
+# def change_endings(infile):
+#     """
+#     Sometimes, READMEs get weird file endings. We force the endings appropriate
+#     to the platform in case they're wrong. Otherwise, there's no change made.
+#     Note: this isn't a valid assumption all the time since you may checkout files
+#     in a format that doesn't match your platform... for now, this is removed.
 
-    Args:
-        infile (file): The open file object for the source README file
+#     Args:
+#         infile (file): The open file object for the source README file
 
-    Raises:
-        ValueError: Raised if platform cannot be determined
+#     Raises:
+#         ValueError: Raised if platform cannot be determined
 
-    Returns:
-        file: The open file object with the fixed endings
-    """
-    WINDOWS_LINE_ENDING = "\r\n"
-    UNIX_LINE_ENDING = "\n"
+#     Returns:
+#         file: The open file object with the fixed endings
+#     """
+#     WINDOWS_LINE_ENDING = "\r\n"
+#     UNIX_LINE_ENDING = "\n"
 
-    with open(infile, "r") as f:
-        content = f.read()
-    if platform.system() == "Linux" or platform.system() == "Darwin":
-        target_ending = UNIX_LINE_ENDING
-        bad_ending = WINDOWS_LINE_ENDING
-    elif platform.system() == "Windows":
-        target_ending = WINDOWS_LINE_ENDING
-        bad_ending = UNIX_LINE_ENDING
-    else:
-        raise ValueError("Unsupported platform detected: %s" % platform.system())
-    content = content.replace(WINDOWS_LINE_ENDING, UNIX_LINE_ENDING)
+#     with open(infile, "r") as f:
+#         content = f.read()
+#     if platform.system() == "Linux" or platform.system() == "Darwin":
+#         target_ending = UNIX_LINE_ENDING
+#         bad_ending = WINDOWS_LINE_ENDING
+#     elif platform.system() == "Windows":
+#         target_ending = WINDOWS_LINE_ENDING
+#         bad_ending = UNIX_LINE_ENDING
+#     else:
+#         raise ValueError("Unsupported platform detected: %s" % platform.system())
+#     content = content.replace(WINDOWS_LINE_ENDING, UNIX_LINE_ENDING)
 
-    outfile = infile + ".tmp"
-    with open(outfile, "w") as f:
-        f.write(content)
+#     outfile = infile + ".tmp"
+#     with open(outfile, "w") as f:
+#         f.write(content)
 
-    return outfile
+#     return outfile
 
 
 # inspired from https://github.com/PyCQA/pylint/blob/master/pylint/utils/pragma_parser.py
 MARKDOWN_CONFIG = r"(\[\/\/\]: \# \(.*?\bexcode-config:\s*(.*=.*))\)"
-MARKDOWN_VALIDATION = r"\[\/\/\]: \# \(.*?\bexcode-validation:\s*(\d)?\s*([\S\s]*)\)"
+MARKDOWN_VALIDATION = r"\[\/\/\]: \# \(.*?\bexcode-validation:\s*(\d)?\s*([\S\s]*?)\)"
 MARKDOWN_CODE = r"\`\`\`(.*)\s([^\`]+)\`\`\`"
 
 
 def extract(infile):
 
-    infile_2 = change_endings(infile)
+    # infile_2 = change_endings(infile)
 
     code_blocks = []
 
-    with open(infile_2, "r") as f:
+    with open(infile, "r") as f:
         readfile = f.read()
 
     options = re.findall(MARKDOWN_CONFIG, readfile)
@@ -82,7 +70,7 @@ def extract(infile):
         extracted["code_blocks"] = []
         extracted["filename"] = infile
     else:
-        os.remove(infile_2)  # remove temporary file created by change_endings()
+        # os.remove(infile_2)  # remove temporary file created by change_endings()
         return {"code_blocks": [], "validation": []}
 
     options = re.findall(MARKDOWN_CODE, readfile)
@@ -118,13 +106,13 @@ def extract(infile):
             curr_index = 0
             for match in options:
                 if match[0]:
-                    index = match[0]
+                    index = int(match[0])
                 else:
                     index = curr_index
                     curr_index += 1
                 extracted["validation"][index] = match[1]
 
-    os.remove(infile_2)  # remove temporary file created by change_endings()
+    # os.remove(infile_2)  # remove temporary file created by change_endings()
 
     return extracted
 
@@ -226,30 +214,29 @@ def write_bash(outfile, code_blocks, validation, prefix):
 
 
 def write(indir, outdir, extracted, prefix="test_"):
+    def prepare_outfile():
+        out_prefix = os.path.dirname(extracted["filename"])[len(indir) :]
+        if out_prefix.startswith("/"):
+            out_prefix = out_prefix[1:]
+        outfile = os.path.join(outdir, out_prefix, "test_" + infile)
+        os.makedirs(os.path.dirname(outfile), exist_ok=True)
+        if not os.path.exists(os.path.join(os.path.dirname(outfile), "__init__.py")):
+            open(os.path.join(os.path.dirname(outfile), "__init__.py"), "w").close()
+        return outfile
+
     code_blocks = extracted["code_blocks"]
     if not code_blocks:
         return None
     validation = extracted["validation"]
     if extracted["mode"] == "python":
         infile = os.path.basename(extracted["filename"]).replace(".md", ".py")
-        out_prefix = os.path.dirname(extracted["filename"])[len(indir) :]
-        if out_prefix.startswith("/"):
-            out_prefix = out_prefix[1:]
-        outfile = os.path.join(outdir, out_prefix, "test_" + infile)
-        os.makedirs(os.path.dirname(outfile), exist_ok=True)
-        if not os.path.exists(os.path.join(os.path.dirname(outfile), "__init__.py")):
-            open(os.path.join(os.path.dirname(outfile), "__init__.py"), "w").close()
+        outfile = prepare_outfile()
         write_python(outfile, code_blocks, validation, prefix)
     elif extracted["mode"] == "bash":
         infile = os.path.basename(extracted["filename"]).replace(".md", ".sh")
-        out_prefix = os.path.dirname(extracted["filename"])[len(indir) :]
-        if out_prefix.startswith("/"):
-            out_prefix = out_prefix[1:]
-        outfile = os.path.join(outdir, out_prefix, "test_" + infile)
-        os.makedirs(os.path.dirname(outfile), exist_ok=True)
-        if not os.path.exists(os.path.join(os.path.dirname(outfile), "__init__.py")):
-            open(os.path.join(os.path.dirname(outfile), "__init__.py"), "w").close()
+        outfile = prepare_outfile()
         write_bash(outfile, code_blocks, validation, prefix)
     else:
-        raise ValueError("unknown language mode")
+        outfile = None
+        print("Unknown language mode: " + extracted["mode"])
     return outfile

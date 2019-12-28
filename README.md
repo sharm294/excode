@@ -30,25 +30,29 @@ def test_0():
 This can be used for automatically turning snippets from markdown files into testable code that can be tested using pytest.
 Note that `[//]: # (...)` is a non-rendering/printing Markdown comment that's used to enable excode on a particular file and provide some control features.
 
+Refer to the sample markdown files used for testing
+in test/markdown for examples and more documentation.
+
 ## Installation
 
 The original excode is [available on PyPI](https://pypi.python.org/pypi/excode/).
 If these [changes](#differences-from-the-original-project) are merged into the this package, then it can be installed/upgraded with:
-```
+```bash
 pip install -U excode
 ```
 
 Otherwise, clone this repository and run
 
-```
+```bash
 pip install .
 ```
 to install the package using the cloned repository.
 
 ## Testing
 
-To run the unit tests, clone this repository and run
-```
+To run the unit tests, first clone this repository.
+Then run:
+```bash
 pytest
 ```
 

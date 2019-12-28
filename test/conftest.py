@@ -31,7 +31,7 @@ def pytest_sessionstart(session):
 
     # test running excode on a single file to a directory that already exists
     os.makedirs("test/test_one")
-    subprocess.run(["excode test/markdown/plain.md test/test_one"], shell=True)
+    subprocess.run(["excode test/markdown/concat.md test/test_one"], shell=True)
     shutil.rmtree(session.fspath + "/test/test_one", ignore_errors=True)
 
     # the "normal" launch of excode
