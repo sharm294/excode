@@ -1,6 +1,7 @@
 import os
 import pytest
 import shutil
+import subprocess
 
 # https://stackoverflow.com/a/44935451
 @pytest.fixture(scope="module")
@@ -25,10 +26,18 @@ def get_out_dir(request):
 
 @pytest.hookimpl
 def pytest_sessionstart(session):
-    # shutil.rmtree(session.fspath + "/test/tmp", ignore_errors=True)
-    os.mkdir(session.fspath + "/test/tmp")
+    # test using invalid arguments (non existent input file)
+    subprocess.run(["excode dummy_file test/tests"], shell=True)
+
+    # test running excode on a single file to a directory that already exists
+    os.makedirs("test/test_one")
+    subprocess.run(["excode test/markdown/concat.md test/test_one"], shell=True)
+    shutil.rmtree(session.fspath + "/test/test_one", ignore_errors=True)
+
+    # the "normal" launch of excode
+    subprocess.run(["excode test/markdown test/tests"], shell=True)
 
 
 @pytest.hookimpl
 def pytest_sessionfinish(session, exitstatus):
-    shutil.rmtree(session.fspath + "/test/tmp", ignore_errors=True)
+    shutil.rmtree(session.fspath + "/test/tests", ignore_errors=True)

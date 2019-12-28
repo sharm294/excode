@@ -19,7 +19,7 @@ def _main():
                             args.indir, os.path.join(_root, a_file), args.outdir
                         )
         else:
-            _run_excode(args.indir, args.outdir)
+            _run_excode(os.path.dirname(args.indir), args.indir, args.outdir)
     else:
         parser.print_help()
     return
