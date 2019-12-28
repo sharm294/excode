@@ -232,19 +232,23 @@ def write(indir, outdir, extracted, prefix="test_"):
     validation = extracted["validation"]
     if extracted["mode"] == "python":
         infile = os.path.basename(extracted["filename"]).replace(".md", ".py")
-        out_prefix = os.path.dirname(extracted["filename"])[
-            len(indir) + 1 :
-        ]  # +1 to remove leading slash
+        out_prefix = os.path.dirname(extracted["filename"])[len(indir) :]
+        if out_prefix.startswith("/"):
+            out_prefix = out_prefix[1:]
         outfile = os.path.join(outdir, out_prefix, "test_" + infile)
         os.makedirs(os.path.dirname(outfile), exist_ok=True)
+        if not os.path.exists(os.path.join(os.path.dirname(outfile), "__init__.py")):
+            open(os.path.join(os.path.dirname(outfile), "__init__.py"), "w").close()
         write_python(outfile, code_blocks, validation, prefix)
     elif extracted["mode"] == "bash":
         infile = os.path.basename(extracted["filename"]).replace(".md", ".sh")
-        out_prefix = os.path.dirname(extracted["filename"])[
-            len(indir) + 1 :
-        ]  # +1 to remove leading slash
+        out_prefix = os.path.dirname(extracted["filename"])[len(indir) :]
+        if out_prefix.startswith("/"):
+            out_prefix = out_prefix[1:]
         outfile = os.path.join(outdir, out_prefix, "test_" + infile)
         os.makedirs(os.path.dirname(outfile), exist_ok=True)
+        if not os.path.exists(os.path.join(os.path.dirname(outfile), "__init__.py")):
+            open(os.path.join(os.path.dirname(outfile), "__init__.py"), "w").close()
         write_bash(outfile, code_blocks, validation, prefix)
     else:
         raise ValueError("unknown language mode")
